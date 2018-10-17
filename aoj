@@ -1,0 +1,16 @@
+#!/bin/bash
+
+tmpfile=$(mktemp)
+echo $1 >> $tmpfile
+echo $2 >> $tmpfile
+if [ -z "$3" ]; then
+  echo 1 >> $tmpfile
+else
+  echo $3 >> $tmpfile
+fi
+
+julia --color=yes --startup-file=yes -e 'id = readline(); 
+                      file = readline();
+                      tlimit = parse(Float64, readline());
+                      using AizuOnlineJudge;
+                      judge(id, file, tlimit)' < $tmpfile
