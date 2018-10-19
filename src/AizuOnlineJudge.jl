@@ -39,11 +39,11 @@ Download a test case
 function download_testcase(problemId::String, serial::Int)
     r = HTTP.request("GET", aojurl(problemId, string(serial)))
     body = get_body!(r)
-    open(joinpath(PATH, problemId, "in$serial.txt"), "w") do f
-        print(f, body["in"])
+    open(joinpath(PATH, problemId, "in$serial.txt"), "w") do fp
+        print(fp, body["in"])
     end
-    open(joinpath(PATH, problemId, "out$serial.txt"), "w") do f
-        print(f, body["out"])
+    open(joinpath(PATH, problemId, "out$serial.txt"), "w") do fp
+        print(fp, body["out"])
     end
 end
 
@@ -59,11 +59,11 @@ function download_samplecases(problemId::String)
     body = get_body!(r)
     for item in body
         serial = item["serial"]
-        open(joinpath(store_path, "in$serial.txt"), "w") do f
-            print(f, item["in"])
+        open(joinpath(store_path, "in$serial.txt"), "w") do fp
+            print(fp, item["in"])
         end
-        open(joinpath(store_path, "out$serial.txt"), "w") do f
-            print(f, item["out"])
+        open(joinpath(store_path, "out$serial.txt"), "w") do fp
+            print(fp, item["out"])
         end
     end
 end
@@ -138,38 +138,39 @@ function run_file(filename::String,
         put!(c, "TLE")
         kill(proc)
     end
+
     return take!(c)
 end
 
-function show_each_result(serial::Int, issamefile::Bool, result::String, total_result::Int)
+function show_each_result(io::IO, serial::Int, issamefile::Bool, result::String, total_result::Int)
     problem_serial = lpad(serial, 5)
-    print(problem_serial, " | ")
+    print(io, problem_serial, " | ")
     if issamefile
-        printstyled("  AC   ", color=:light_green)
-        println("| ", result)
+        printstyled(io, "  AC   ", color=:light_green)
+        println(io, "| ", result)
     elseif result == "TLE"
-        printstyled("  TLE  ", color=:light_red)
-        println("| ")
+        printstyled(io, "  TLE  ", color=:light_red)
+        println(io, "| ")
         total_result = Int(TLE)
     elseif result == "RE"
-        printstyled("  RE   ", color=:light_red)
-        println("| ")
+        printstyled(io, "  RE   ", color=:light_red)
+        println(io, "| ")
         total_result = Int(RE)
     else
-        printstyled("  WA   ", color=:light_red)
-        println("| ", result)
+        printstyled(io, "  WA   ", color=:light_red)
+        println(io, "| ", result)
         total_result = Int(WA)
     end
     return total_result
 end
 
-
-function judge(problemId::String, filename::String, tlimit::Real=1, issample::Bool=false)
+"""
+    judge(problemId::String, filename::String, tlimit::Real=1, issample::Bool=false)
+    judge(io::IO, problemId::String, filename::String, tlimit::Real=1, issample::Bool=false)
+"""
+function judge(io::IO, problemId::String, filename::String, tlimit::Real=1, issample::Bool=false)
     filename = expandpath(filename)
     ispath(filename) || error("could not open file $filename")
-    # download_testcases(problemId)
-    # testcases_dir = joinpath(AizuOnlineJudge.PATH, problemId)
-    # testcases_dir = issample ? joinpath(PATH, problemId, "samples") : joinpath(PATH, problemId)
 
     testcases_dir = if issample
         download_samplecases(problemId)
@@ -179,37 +180,46 @@ function judge(problemId::String, filename::String, tlimit::Real=1, issample::Bo
         joinpath(PATH, problemId)
     end
 
-    # num_testcases = length(readdir(testcases_dir)) >> 1
     num_testcases = sum(occursin.("txt", readdir(testcases_dir))) >> 1
     myoutput_dir = joinpath(testcases_dir, "mysubmission")
     mkpath(myoutput_dir)
 
     # Judge
     total_result = 0
-    println("--------------------------------")
-    println(" Test | Status | Exec Time      ")
-    println("  No. |        |                ")
-    println("--------------------------------")
+    println(io, "--------------------------------")
+    println(io, " Test | Status | Exec Time      ")
+    println(io, "  No. |        |                ")
+    println(io, "--------------------------------")
     for serial in 1:num_testcases
         result = run_file(filename, tlimit, serial, testcases_dir, myoutput_dir)
         correctresult = joinpath(testcases_dir, "out$(serial).txt")
         myresult = joinpath(myoutput_dir, "myout$(serial).txt")
         issamefile = compare_files(correctresult, myresult)
-        total_result = show_each_result(serial, issamefile, result, total_result)
+        total_result = show_each_result(io, serial, issamefile, result, total_result)
     end
 
-    println()
-    print("Status :" )
-    total_result == 0 && printstyled(" AC ", color=:light_green)
-    total_result == Int(TLE) && printstyled(" TLE ", color=:light_red)
-    total_result == Int(WA) && printstyled(" WA ", color=:light_red)
-    total_result == Int(RE) && printstyled(" RE ", color=:light_red)
-
-    println()
+    println(io)
+    print(io, "Status :" )
+    total_result == 0 && printstyled(io, " AC ", color=:light_green)
+    total_result == Int(TLE) && printstyled(io, " TLE ", color=:light_red)
+    total_result == Int(WA) && printstyled(io, " WA ", color=:light_red)
+    total_result == Int(RE) && printstyled(io, " RE ", color=:light_red)
+    println(io)
+    return string(STATUS(total_result))
+end
+function judge(problemId::String, filename::String, tlimit::Real=1, issample::Bool=false)
+    judge(stdout, problemId, filename, tlimit, issample)
 end
 
+"""
+    test_sample(problemId::String, filename::String, tlimit::Real=1)
+    test_sample(io::IO, problemId::String, filename::String, tlimit::Real=1)
+"""
+function test_sample(io::IO, problemId::String, filename::String, tlimit::Real=1)
+    judge(io, problemId, filename, tlimit, true)
+end
 function test_sample(problemId::String, filename::String, tlimit::Real=1)
-    judge(problemId, filename, tlimit, true)
+    test_sample(stdout, problemId, filename, tlimit)
 end
 
 end # module
