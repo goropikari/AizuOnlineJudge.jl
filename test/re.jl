@@ -1,0 +1,5 @@
+# ALDS1_1_B
+error()
+x, y = parse.(Int, split(readline()))
+mygcd(x,y) = y == 0 ? x : mygcd(y, mod(x,y))
+println(mygcd(x,y))

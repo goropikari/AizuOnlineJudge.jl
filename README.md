@@ -1,5 +1,11 @@
 # AizuOnlineJudge.jl
 
+[![Build Status](https://travis-ci.org/goropikari/AizuOnlineJudge.jl.svg?branch=master)](https://travis-ci.org/goropikari/AizuOnlineJudge.jl)
+[![Build status](https://ci.appveyor.com/api/projects/status/frbigbvgw3wtl3b9?svg=true)](https://ci.appveyor.com/project/goropikari/aizuonlinejudge-jl)
+[![Coverage Status](https://coveralls.io/repos/github/goropikari/AizuOnlineJudge.jl/badge.svg?branch=master)](https://coveralls.io/github/goropikari/AizuOnlineJudge.jl?branch=master)
+[![codecov](https://codecov.io/gh/goropikari/AizuOnlineJudge.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/goropikari/AizuOnlineJudge.jl)
+
+
 This is a unofficial judge system of [Aizu Online Judge](https://onlinejudge.u-aizu.ac.jp/home) (AOJ) for [Julia](https://julialang.org/).
 
 

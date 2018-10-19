@@ -121,15 +121,16 @@ function run_file(filename::String,
     c = Channel{String}(1)
     time_start = now()
 
-    pipe1 = pipeline(`julia $filename`, stdin=joinpath(testcases_dir, "in$(serial).txt"))
-    pipe2 = pipeline(pipe1, stdout=joinpath(myoutput_dir, "myout$(serial).txt"))
-    proc = run(pipeline(pipe2, stderr=devnull), wait=false)
+    input_test = joinpath(testcases_dir, "in$(serial).txt")
+    output_test = joinpath(myoutput_dir, "myout$(serial).txt")
+    pipe = pipeline(`julia $filename`, stdin=input_test, stdout=output_test, stderr=devnull)
+    proc = run(pipe, wait=false)
     @async begin
         wait(proc)
         if proc.exitcode == 0
             time_finish = now()
             put!(c, string(time_finish - time_start))
-        else
+        elseif proc.exitcode == 1
             put!(c, "RE")
         end
     end
