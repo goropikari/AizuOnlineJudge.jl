@@ -3,10 +3,15 @@ export judge, test_sample
 
 using HTTP, JSON, SHA, Dates
 const endpoint = "https://judgedat.u-aizu.ac.jp/testcases"
-if haskey(ENV, "JULIA_AOJ")
-    const PATH = ENV["JULIA_AOJ"]
+const julia = Base.julia_cmd().exec[1]
+if haskey(ENV, "JULIA_AOJ_PATH")
+    const PATH = ENV["JULIA_AOJ_PATH"]
 else
-    const PATH = joinpath(ENV["HOME"], ".juliaAOJ")
+    if Sys.isunix() || Sys.islinux()
+        const PATH = joinpath(ENV["HOME"], ".juliaAOJ")
+    elseif Sys.iswindows()
+        const PATH = joinpath(ENV["HOMEPATH"], ".juliaAOJ")
+    end
 end
 @enum STATUS AC WA TLE RE
 
@@ -123,7 +128,7 @@ function run_file(filename::String,
 
     input_test = joinpath(testcases_dir, "in$(serial).txt")
     output_test = joinpath(myoutput_dir, "myout$(serial).txt")
-    pipe = pipeline(`julia $filename`, stdin=input_test, stdout=output_test, stderr=devnull)
+    pipe = pipeline(`$julia $filename`, stdin=input_test, stdout=output_test, stderr=devnull)
     proc = run(pipe, wait=false)
     @async begin
         wait(proc)
