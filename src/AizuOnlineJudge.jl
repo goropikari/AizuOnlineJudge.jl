@@ -174,7 +174,7 @@ end
     judge(problemId::String, filename::String, tlimit::Real=1, issample::Bool=false)
     judge(io::IO, problemId::String, filename::String, tlimit::Real=1, issample::Bool=false)
 """
-function judge(io::IO, problemId::String, filename::String, tlimit::Real=1, issample::Bool=false)
+function judge(io::IO, problemId::String, filename::String, tlimit::Real=3, issample::Bool=false)
     filename = expandpath(filename)
     ispath(filename) || error("could not open file $filename")
 
