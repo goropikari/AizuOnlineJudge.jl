@@ -18,14 +18,14 @@ Pkg.pkg"add https://github.com/goropikari/AizuOnlineJudge.jl"
 # Usage
 ```julia
 using AizuOnlineJudge
-test_sample("ProblemId", "yourfile.jl", timelimit=1)
-judge("ProblemId", "yourfile.jl", timelimit=1)
+test_sample("ProblemId", "yourfile.jl", timelimit=3)
+judge("ProblemId", "yourfile.jl", timelimit=3)
 ```
 
 or
 
 ```bash
-./aoj ProblemId yourfile.jl [time_limit] # default time limit is 1 second.
+./aoj ProblemId yourfile.jl [time_limit] # default time limit is 3 second.
 ```
 
 
@@ -44,3 +44,13 @@ println(mygcd(x,y))
 ```
 
 ![sample](./pic/sample_gcd.gif)
+
+
+# Known issues
+Some problems can't be evaluated correctly.
+If a problem uses floating point number, it fails to evaluate.
+
+
+# Solutions
+
+https://github.com/goropikari/AizuOnlineJudge_solution_julia
