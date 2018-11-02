@@ -4,6 +4,7 @@ export judge, test_sample
 using HTTP, JSON, SHA, Dates
 const endpoint = "https://judgedat.u-aizu.ac.jp/testcases"
 const julia = Base.julia_cmd().exec[1]
+const DEFAULT_TIME_LIMIT = 3
 if haskey(ENV, "JULIA_AOJ_PATH")
     const PATH = ENV["JULIA_AOJ_PATH"]
 else
@@ -171,10 +172,10 @@ function show_each_result(io::IO, serial::Int, issamefile::Bool, result::String,
 end
 
 """
-    judge(problemId::String, filename::String, tlimit::Real=1, issample::Bool=false)
-    judge(io::IO, problemId::String, filename::String, tlimit::Real=1, issample::Bool=false)
+    judge(problemId::String, filename::String, tlimit::Real=3, issample::Bool=false)
+    judge(io::IO, problemId::String, filename::String, tlimit::Real=3, issample::Bool=false)
 """
-function judge(io::IO, problemId::String, filename::String, tlimit::Real=3, issample::Bool=false)
+function judge(io::IO, problemId::String, filename::String, tlimit::Real=DEFAULT_TIME_LIMIT, issample::Bool=false)
     filename = expandpath(filename)
     ispath(filename) || error("could not open file $filename")
 
@@ -213,18 +214,18 @@ function judge(io::IO, problemId::String, filename::String, tlimit::Real=3, issa
     println(io)
     return string(STATUS(total_result))
 end
-function judge(problemId::String, filename::String, tlimit::Real=1, issample::Bool=false)
+function judge(problemId::String, filename::String, tlimit::Real=DEFAULT_TIME_LIMIT, issample::Bool=false)
     judge(stdout, problemId, filename, tlimit, issample)
 end
 
 """
-    test_sample(problemId::String, filename::String, tlimit::Real=1)
-    test_sample(io::IO, problemId::String, filename::String, tlimit::Real=1)
+    test_sample(problemId::String, filename::String, tlimit::Real=3)
+    test_sample(io::IO, problemId::String, filename::String, tlimit::Real=3)
 """
-function test_sample(io::IO, problemId::String, filename::String, tlimit::Real=1)
+function test_sample(io::IO, problemId::String, filename::String, tlimit::Real=DEFAULT_TIME_LIMIT)
     judge(io, problemId, filename, tlimit, true)
 end
-function test_sample(problemId::String, filename::String, tlimit::Real=1)
+function test_sample(problemId::String, filename::String, tlimit::Real=DEFAULT_TIME_LIMIT)
     test_sample(stdout, problemId, filename, tlimit)
 end
 
