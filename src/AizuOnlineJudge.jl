@@ -181,6 +181,7 @@ end
     judge(io::IO, problemId::String, filename::String, tlimit::Real=3, issample::Bool=false)
 """
 function judge(io::IO, problemId::String, filename::String, tlimit::Real=DEFAULT_TIME_LIMIT, issample::Bool=false)
+    isempty(filename) && error("Specify a program file")
     filename = expandpath(filename)
     ispath(filename) || error("could not open file $filename")
 
