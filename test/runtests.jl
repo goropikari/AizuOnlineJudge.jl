@@ -1,5 +1,6 @@
 using Test, AizuOnlineJudge
 
+AizuOnlineJudge.settest(true)
 t = 3
 @test test_sample("ALDS1_1_B", "gcd.jl", t) == "AC"
 @test test_sample("ALDS1_1_B", "gcd.jl", 0.1) == "TLE"

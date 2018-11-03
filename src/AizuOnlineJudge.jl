@@ -5,6 +5,11 @@ using HTTP, JSON, SHA, Dates
 const endpoint = "https://judgedat.u-aizu.ac.jp/testcases"
 const julia = Base.julia_cmd().exec[1]
 const DEFAULT_TIME_LIMIT = 3
+function settest(TEST::Bool=_test)
+    global _test = TEST
+end
+settest(false)
+
 if haskey(ENV, "JULIA_AOJ_PATH")
     const PATH = ENV["JULIA_AOJ_PATH"]
 else
@@ -212,7 +217,7 @@ function judge(io::IO, problemId::String, filename::String, tlimit::Real=DEFAULT
     total_result == Int(WA) && printstyled(io, " WA ", color=:light_red)
     total_result == Int(RE) && printstyled(io, " RE ", color=:light_red)
     println(io)
-    return string(STATUS(total_result))
+    return _test ? string(STATUS(total_result)) : nothing
 end
 function judge(problemId::String, filename::String, tlimit::Real=DEFAULT_TIME_LIMIT, issample::Bool=false)
     judge(stdout, problemId, filename, tlimit, issample)
