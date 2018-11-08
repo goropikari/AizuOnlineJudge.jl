@@ -6,7 +6,7 @@
 [![codecov](https://codecov.io/gh/goropikari/AizuOnlineJudge.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/goropikari/AizuOnlineJudge.jl)
 
 
-This is a unofficial judge system of [Aizu Online Judge](https://onlinejudge.u-aizu.ac.jp/home) (AOJ) for [Julia](https://julialang.org/).
+This is an unofficial judge system of [Aizu Online Judge](https://onlinejudge.u-aizu.ac.jp/home) (AOJ) for [Julia](https://julialang.org/).
 
 [使い方（日本語）](https://goropikari.hatenablog.com/entry/julia_aoj?_ga=2.228535316.862849271.1540555626-663252211.1540555626)
 
