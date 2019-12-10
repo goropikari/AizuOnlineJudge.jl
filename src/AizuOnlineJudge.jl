@@ -1,238 +1,121 @@
 module AizuOnlineJudge
 export judge, test_sample
 
-using HTTP, JSON, SHA, Dates
-const endpoint = "https://judgedat.u-aizu.ac.jp/testcases"
-const julia = Base.julia_cmd().exec[1]
-const DEFAULT_TIME_LIMIT = 3
-function settest(TEST::Bool=_test)
-    global _test = TEST
-end
-settest(false)
+import HTTP, JSON, SHA, Dates
+const endpoint = "https://judgedat.u-aizu.ac.jp"
 
-if haskey(ENV, "JULIA_AOJ_PATH")
-    const PATH = ENV["JULIA_AOJ_PATH"]
-else
-    if Sys.isunix() || Sys.islinux()
-        const PATH = joinpath(ENV["HOME"], ".juliaAOJ")
-    elseif Sys.iswindows()
-        const PATH = joinpath(ENV["HOMEPATH"], ".juliaAOJ")
-    end
+# API Reference
+# http://developers.u-aizu.ac.jp/api?key=judgedat%2Ftestcases%2F%7BproblemId%7D%2F%7Bserial%7D_GET
+# http://developers.u-aizu.ac.jp/api?key=judgedat%2Ftestcases%2F%7BproblemId%7D%2Fheader_GET
+# http://developers.u-aizu.ac.jp/api?key=judgedat%2Ftestcases%2F%7BproblemId%7D%2F%7Bserial%7D_GET
+#
+# sample case
+# https://judgedat.u-aizu.ac.jp/testcases/samples/ALDS1_1_A
+#
+# 問題数を知る
+# https://judgedat.u-aizu.ac.jp/testcases/ALDS1_1_A/header
+#
+# 各問題の入出力
+# https://judgedat.u-aizu.ac.jp/testcases/ALDS1_1_A/1
+
+const OUTPUT_PATH = if haskey(ENV, "JULIA_AOJ_PATH")
+    ENV["JULIA_AOJ_PATH"]
+elseif Sys.isunix() || Sys.islinux()
+    joinpath(ENV["HOME"], ".juliaAOJ")
+elseif Sys.iswindows()
+    joinpath(ENV["HOMEPATH"], ".juliaAOJ")
 end
 @enum STATUS AC WA TLE RE
 
-function expandpath(path::String)
-    if Sys.isunix() || Sys.islinux()
-        path = replace(path, "~" => homedir())
-    end
-    return normpath(path)
+function jsonbody(res::HTTP.Messages.Response)
+    JSON.parse(String(res.body))
 end
 
-aojurl(arg...) = joinpath(endpoint, arg...)
-get_body!(r) = JSON.parse(String(r.body))
-
-function clean()
-    rm(PATH, force=true, recursive=true)
+function aoj_get(uri)
+    HTTP.get(HTTP.safer_joinpath(endpoint, uri))
 end
 
-"""
-    download_header(problemId::String)
-"""
-function download_header(problemId::String)
-    r = HTTP.request("GET", aojurl(problemId, "header"))
-    get_body!(r)
-end
-
-"""
-    download_testcase(problemId::String, serial::Int)
-Download a test case
-"""
-function download_testcase(problemId::String, serial::Int)
-    r = HTTP.request("GET", aojurl(problemId, string(serial)))
-    body = get_body!(r)
-    open(joinpath(PATH, problemId, "in$serial.txt"), "w") do fp
-        print(fp, body["in"])
-    end
-    open(joinpath(PATH, problemId, "out$serial.txt"), "w") do fp
-        print(fp, body["out"])
+function validate_problemid(problemid)
+    if ! isnothing(match(r"[^a-zA-Z0-9_]", problemid))
+        error("Invalid Problem ID: $problemid")
     end
 end
 
-"""
-    download_samplecases(problemId::String)
-"""
-function download_samplecases(problemId::String)
-    store_path = joinpath(PATH, problemId, "samples")
-    ispath(store_path) && return
-    mkpath(store_path)
+function get_samplecases(problemid)
+    validate_problemid(problemid)
+    uri = "testcases/samples/$(problemid)"
+    res = retry(aoj_get, delays=Base.ExponentialBackOff(n=3))(uri)
+    return jsonbody(res)
+end
 
-    r = HTTP.request("GET", aojurl("samples", problemId))
-    body = get_body!(r)
-    for item in body
-        serial = item["serial"]
-        open(joinpath(store_path, "in$serial.txt"), "w") do fp
-            print(fp, item["in"])
-        end
-        open(joinpath(store_path, "out$serial.txt"), "w") do fp
-            print(fp, item["out"])
-        end
+function get_header(problemid)
+    validate_problemid(problemid)
+    uri = "testcases/$(problemid)/header"
+    res = retry(aoj_get, delays=Base.ExponentialBackOff(n=3))(uri)
+    return jsonbody(res)
+end
+
+function get_testcases(problemid)
+    validate_problemid(problemid)
+    ncases = length(get_header(problemid)["headers"])
+    testcases = sizehint!(Dict{String, Any}[], ncases)
+    for id in 1:ncases
+        uri = "testcases/$(problemid)/$(id)"
+        res = retry(aoj_get, delays=Base.ExponentialBackOff(n=3))(uri)
+        push!(testcases, jsonbody(res))
+    end
+
+    return testcases
+end
+
+function write_testcase(case, suffix="", force=false)
+    problemid = case["problemId"]
+    serial    = case["serial"]
+    input     = case["in"]
+    output    = case["out"]
+
+    d = joinpath(OUTPUT_PATH, problemid * suffix, lpad(serial, 3, '0'))
+    if !force && isdir(d)
+        return nothing
+    end
+    mkpath(d)
+
+    open(joinpath(d, "in.txt"), "w") do io
+        print(io, input)
+    end
+
+    open(joinpath(d, "out.txt"), "w") do io
+        print(io, output)
     end
 end
 
-"""
-    download_testcases(problemId::String)
-Download test cases associated with `problemId`.
-"""
-function download_testcases(problemId::String)
-    store_path = joinpath(PATH, problemId)
-    (ispath(store_path) && length(readdir(store_path)) >= 2) && return
-    mkpath(store_path)
-
-    header = download_header(problemId)
-    n = length(header["headers"]) # thu number of test cases
-    for serial in 1:n
-        download_testcase(problemId, serial)
-    end
-    return
+function download_all_testcases(problemid, force=false)
+    validate_problemid(problemid)
+    (case -> write_testcase(case, "_sample", force)).(get_samplecases(problemid))
+    (case -> write_testcase(case, "", force)).(get_testcases(problemid))
+    println("Download all test cases for $(problemid)")
+    return nothing
 end
 
-"""
-    compare_files(file1::String, file2::String)
-"""
 function compare_files(file1::String, file2::String)
     f1 = open(file1) do f
-       sha2_256(f)
+       SHA.sha2_256(f)
     end
     f2 = open(file2) do f
-       sha2_256(f)
+       SHA.sha2_256(f)
     end
     return f1 == f2
 end
 
-"""
-    run_file(filename::String,
-             tlimit::Real,
-             serial::Int,
-             testcases_dir::String,
-             myoutput_dir::String)
-Execute your program.
+program = "ex.jl"
+f = eval(quote
+            function $(Symbol(randstring()))()
+                include($(program))
+            end
+        end)
 
-# Return value:
-- execution time: if result is AC or WA.
-- RE            : if result is RE.
-- TLE           : if resulit is TLE.
-"""
-function run_file(filename::String,
-                  tlimit::Real,
-                  serial::Int,
-                  testcases_dir::String,
-                  myoutput_dir::String)
-    filename = expandpath(filename)
-    ispath(filename) || error("could not open file $filename")
-    c = Channel{String}(1)
-    time_start = now()
 
-    input_test = joinpath(testcases_dir, "in$(serial).txt")
-    output_test = joinpath(myoutput_dir, "myout$(serial).txt")
-    pipe = pipeline(`$julia $filename`, stdin=input_test, stdout=output_test, stderr=devnull)
-    proc = run(pipe, wait=false)
-    @async begin
-        wait(proc)
-        if proc.exitcode == 0
-            time_finish = now()
-            put!(c, string(time_finish - time_start))
-        elseif proc.exitcode == 1
-            put!(c, "RE")
-        end
-    end
-    @async begin
-        sleep(tlimit)
-        put!(c, "TLE")
-        kill(proc)
-    end
-
-    return take!(c)
-end
-
-function show_each_result(io::IO, serial::Int, issamefile::Bool, result::String, total_result::Int)
-    problem_serial = lpad(serial, 5)
-    print(io, problem_serial, " | ")
-    if issamefile
-        printstyled(io, "  AC   ", color=:light_green)
-        println(io, "| ", result)
-    elseif result == "TLE"
-        printstyled(io, "  TLE  ", color=:light_red)
-        println(io, "| ")
-        total_result = Int(TLE)
-    elseif result == "RE"
-        printstyled(io, "  RE   ", color=:light_red)
-        println(io, "| ")
-        total_result = Int(RE)
-    else
-        printstyled(io, "  WA   ", color=:light_red)
-        println(io, "| ", result)
-        total_result = Int(WA)
-    end
-    return total_result
-end
-
-"""
-    judge(problemId::String, filename::String, tlimit::Real=3, issample::Bool=false)
-    judge(io::IO, problemId::String, filename::String, tlimit::Real=3, issample::Bool=false)
-"""
-function judge(io::IO, problemId::String, filename::String, tlimit::Real=DEFAULT_TIME_LIMIT, issample::Bool=false)
-    isempty(filename) && error("Specify a program file")
-    filename = expandpath(filename)
-    ispath(filename) || error("could not open file $filename")
-
-    testcases_dir = if issample
-        download_samplecases(problemId)
-        joinpath(PATH, problemId, "samples")
-    else
-        download_testcases(problemId)
-        joinpath(PATH, problemId)
-    end
-
-    num_testcases = sum(occursin.("txt", readdir(testcases_dir))) >> 1
-    myoutput_dir = joinpath(testcases_dir, "mysubmission")
-    mkpath(myoutput_dir)
-
-    # Judge
-    total_result = 0
-    println(io, "--------------------------------")
-    println(io, " Test | Status | Exec Time      ")
-    println(io, "  No. |        |                ")
-    println(io, "--------------------------------")
-    for serial in 1:num_testcases
-        result = run_file(filename, tlimit, serial, testcases_dir, myoutput_dir)
-        correctresult = joinpath(testcases_dir, "out$(serial).txt")
-        myresult = joinpath(myoutput_dir, "myout$(serial).txt")
-        issamefile = compare_files(correctresult, myresult)
-        total_result = show_each_result(io, serial, issamefile, result, total_result)
-    end
-
-    println(io)
-    print(io, "Status :" )
-    total_result == 0 && printstyled(io, " AC ", color=:light_green)
-    total_result == Int(TLE) && printstyled(io, " TLE ", color=:light_red)
-    total_result == Int(WA) && printstyled(io, " WA ", color=:light_red)
-    total_result == Int(RE) && printstyled(io, " RE ", color=:light_red)
-    println(io)
-    return _test ? string(STATUS(total_result)) : nothing
-end
-function judge(problemId::String, filename::String, tlimit::Real=DEFAULT_TIME_LIMIT, issample::Bool=false)
-    judge(stdout, problemId, filename, tlimit, issample)
-end
-
-"""
-    test_sample(problemId::String, filename::String, tlimit::Real=3)
-    test_sample(io::IO, problemId::String, filename::String, tlimit::Real=3)
-"""
-function test_sample(io::IO, problemId::String, filename::String, tlimit::Real=DEFAULT_TIME_LIMIT)
-    judge(io, problemId, filename, tlimit, true)
-end
-function test_sample(problemId::String, filename::String, tlimit::Real=DEFAULT_TIME_LIMIT)
-    test_sample(stdout, problemId, filename, tlimit)
-end
+function judge(io, problemid, program; timelimit_sec = 3, issample = false) end
+function test_sample(io, problemid, program) end
 
 end # module
